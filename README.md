@@ -1,5 +1,7 @@
 # nntime (Experimental Project)
 
+<p style="text-align: center"><img alt="Teaser" src="doc/img/teaser.png" max-width="800px"></p>
+
 See `examples/basic.py` for usage.
 
 ## Installation
