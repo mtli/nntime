@@ -1,6 +1,6 @@
 # nntime (Experimental Project)
 
-<p style="text-align: center"><img alt="Teaser" src="doc/img/teaser.png" max-width="800px"></p>
+<p align="center"><img alt="Teaser" src="doc/img/teaser.png" width="600px"></p>
 
 See `examples/basic.py` for usage.
 
