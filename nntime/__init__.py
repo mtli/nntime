@@ -1,11 +1,11 @@
-__version__ = '0.0.1'
+__version__ = '0.0.2'
 
-from .timing import set_global_level, get_global_level, \
+from .timing import set_global_depth, get_global_depth, \
     set_global_sync, get_global_sync, \
     time_this, timer_start, timer_end, export_timings
 
 __all__ = [
-    'set_global_level', 'get_global_level',
+    'set_global_depth', 'get_global_depth',
     'set_global_sync', 'get_global_sync',
     'time_this', 'timer_start', 'timer_end',
     'export_timings',

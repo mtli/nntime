@@ -9,21 +9,21 @@ import torch
 
 
 suffix = '_nntimes'
-global_level = None
+global_depth = None
 global_sync = False
 
-def _update_counter(module, name, value, level):
+def _update_counter(module, name, value, depth):
     if hasattr(module, name):
         getattr(module, name)[1].append(value)
     else:
-        setattr(module, name, (level, [value]))
+        setattr(module, name, (depth, [value]))
 
-def set_global_level(level):
-    global global_level
-    global_level = level
+def set_global_depth(depth):
+    global global_depth
+    global_depth = depth
 
-def get_global_level():
-    return global_level
+def get_global_depth():
+    return global_depth
 
 def set_global_sync(flag):
     global global_sync
@@ -32,14 +32,14 @@ def set_global_sync(flag):
 def get_global_sync():
     return global_sync
 
-def time_this(name=None, level=None):
+def time_this(name=None, depth=None):
     """A decorator to store timing samples for a member function (e.g. forward in nn.Module)
     
     name: a name for the counter
-    level: an integer that later can be used as a filter to select counters
+    depth: an integer that later can be used as a filter to select counters
     """
     def time_this_wrapper(old_func):
-        if (global_level is not None) and (level is not None) and level < global_level:
+        if (global_depth is not None) and (depth is not None) and depth > global_depth:
             return old_func
 
         var_name = old_func.__name__ if name is None else name
@@ -57,7 +57,7 @@ def time_this(name=None, level=None):
                 torch.cuda.synchronize()
             t_end = perf_counter()
 
-            _update_counter(args[0], var_name, t_end - t_start, level)
+            _update_counter(args[0], var_name, t_end - t_start, depth)
             return output
         return new_func
     return time_this_wrapper
@@ -69,24 +69,24 @@ def timer_start(module, name):
         torch.cuda.synchronize()
     setattr(module, name + '_start', perf_counter())
 
-def timer_end(module, name, level=None):
+def timer_end(module, name, depth=None):
     """Mark the end of a piece of code in the member function for timing
     """
     if global_sync:
         torch.cuda.synchronize()
     t_end = perf_counter()
-    if (global_level is not None) and (level is not None) and level < global_level:
+    if (global_depth is not None) and (depth is not None) and depth > global_depth:
         return
     t_start = getattr(module, name + '_start')
-    _update_counter(module, name + suffix, t_end - t_start, level)
+    _update_counter(module, name + suffix, t_end - t_start, depth)
 
 def export_timings(
     model,
     out_path,
     overwrite=True,
     auto_mkdir=True,
-    show_level=False,
-    level=None,
+    show_depth=False,
+    depth=None,
     header=True,
     warmup=5,
     unit='ms', 
@@ -116,7 +116,7 @@ def export_timings(
     with open(out_path, 'w', newline='\n', encoding='utf-8') as f:
         w = csv.writer(f)
         if header:
-            row = ['Level'] if show_level else []
+            row = ['Depth'] if show_depth else []
             row += ['Item', f'Mean ({unit})', f'Std ({unit})',
                 f'Min ({unit})', f'Max ({unit})']
             w.writerow(row)
@@ -134,8 +134,8 @@ def export_timings(
             for n, m in model.named_modules():
                 for a in dir(m):
                     if a.endswith(suffix):
-                        l, t = getattr(m, a)
-                        if (level is not None) and (l is not None) and l < level:
+                        d, t = getattr(m, a)
+                        if (depth is not None) and (d is not None) and d > depth:
                             continue
                         t = np.asarray(t)
                         if warmup:
@@ -144,8 +144,8 @@ def export_timings(
                         name += a[:-len(suffix)]
                         assert len(t) > 0, f'Not enough samples for {name} (after discouting warmup)'
 
-                        if show_level:
-                            row = ['' if l is None else str(l)]
+                        if show_depth:
+                            row = ['' if d is None else str(d)]
                         else:
                             row = []
                         row += [name,
