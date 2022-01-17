@@ -93,8 +93,9 @@ def export_timings(
     out_path,
     overwrite=True,
     auto_mkdir=True,
-    show_depth=False,
     depth=None,
+    sort_by_depth=True,
+    show_depth=False,
     header=True,
     warmup=5,
     unit='ms', 
@@ -117,6 +118,41 @@ def export_timings(
     else:
         raise ValueError(f'Unknown time unit: {unit}')
 
+    rows = []
+
+    # multiple models
+    if isinstance(model, list):
+        models = model
+    elif isinstance(model, tuple):
+        assert len(model) == 2, 'If model is a tuple, it should be in the format of (<name>, <model>)'
+        models = [model]
+    else:
+        models = [('', model)]
+    for prefix, model in models:
+        prefix = prefix + '.' if prefix else prefix
+        for m_name, module in model.named_modules():
+            if hasattr(module, timer_list_name):
+                for t_name in getattr(module, timer_list_name):
+                    d, t = getattr(module, global_prefix + t_name)
+                    if (depth is not None) and (d is not None) and d > depth:
+                        continue
+                    t = np.asarray(t)
+                    if warmup:
+                        t = t[warmup:]
+                    name = prefix + (m_name + '.' if m_name else '') + t_name
+                    assert len(t) > 0, f'Not enough samples for {name} (after discouting warmup)'
+
+                    row = ['' if d is None else str(d), name,
+                        f'{cvt(t.mean()):{fmt}}', f'{cvt(t.std(ddof=1)):{fmt}}',
+                        f'{cvt(t.min()):{fmt}}', f'{cvt(t.max()):{fmt}}',
+                    ]
+                    rows.append(row)
+
+    if sort_by_depth:
+        rows = sorted(rows, key=lambda row: row[0])
+    if not show_depth:
+        rows = [row[1:] for row in rows]
+
     d = dirname(out_path)
     if d:
         makedirs(d, exist_ok=True)
@@ -128,35 +164,4 @@ def export_timings(
             row += ['Item', f'Mean ({unit})', f'Std ({unit})',
                 f'Min ({unit})', f'Max ({unit})']
             w.writerow(row)
-
-        # multiple models
-        if isinstance(model, list):
-            models = model
-        elif isinstance(model, tuple):
-            assert len(model) == 2, 'If model is a tuple, it should be in the format of (<name>, <model>)'
-            models = [model]
-        else:
-            models = [('', model)]
-        for prefix, model in models:
-            prefix = prefix + '.' if prefix else prefix
-            for m_name, module in model.named_modules():
-                if hasattr(module, timer_list_name):
-                    for t_name in getattr(module, timer_list_name):
-                        d, t = getattr(module, global_prefix + t_name)
-                        if (depth is not None) and (d is not None) and d > depth:
-                            continue
-                        t = np.asarray(t)
-                        if warmup:
-                            t = t[warmup:]
-                        name = prefix + (m_name + '.' if m_name else '') + t_name
-                        assert len(t) > 0, f'Not enough samples for {name} (after discouting warmup)'
-
-                        if show_depth:
-                            row = ['' if d is None else str(d)]
-                        else:
-                            row = []
-                        row += [name,
-                            f'{cvt(t.mean()):{fmt}}', f'{cvt(t.std(ddof=1)):{fmt}}',
-                            f'{cvt(t.min()):{fmt}}', f'{cvt(t.max()):{fmt}}',
-                        ]
-                        w.writerow(row)
+        w.writerows(rows)
