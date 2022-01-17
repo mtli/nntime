@@ -8,15 +8,24 @@ import numpy as np
 import torch
 
 
-suffix = '_nntimes'
 global_depth = None
 global_sync = False
+global_prefix = '_nntime_'
+
+timer_list_name = global_prefix + 'timer_list'
+
 
 def _update_counter(module, name, value, depth):
-    if hasattr(module, name):
-        getattr(module, name)[1].append(value)
+    if hasattr(module, timer_list_name):
+        timer_list = getattr(module, timer_list_name)
+        if name in timer_list:
+            getattr(module, global_prefix + name)[1].append(value)
+        else:
+            timer_list.append(name)
+            setattr(module, global_prefix + name, (depth, [value]))
     else:
-        setattr(module, name, (depth, [value]))
+        setattr(module, timer_list_name, [name])
+        setattr(module, global_prefix + name, (depth, [value]))
 
 def set_global_depth(depth):
     global global_depth
@@ -43,7 +52,6 @@ def time_this(name=None, depth=None):
             return old_func
 
         var_name = old_func.__name__ if name is None else name
-        var_name += suffix
 
         # "wraps" is for keeping the name and the doc string of the decorated
         # function
@@ -67,7 +75,7 @@ def timer_start(module, name):
     """
     if global_sync:
         torch.cuda.synchronize()
-    setattr(module, name + '_start', perf_counter())
+    setattr(module, global_prefix + name + '_start', perf_counter())
 
 def timer_end(module, name, depth=None):
     """Mark the end of a piece of code in the member function for timing
@@ -77,8 +85,8 @@ def timer_end(module, name, depth=None):
     t_end = perf_counter()
     if (global_depth is not None) and (depth is not None) and depth > global_depth:
         return
-    t_start = getattr(module, name + '_start')
-    _update_counter(module, name + suffix, t_end - t_start, depth)
+    t_start = getattr(module, global_prefix + name + '_start')
+    _update_counter(module, name, t_end - t_start, depth)
 
 def export_timings(
     model,
@@ -131,17 +139,16 @@ def export_timings(
             models = [('', model)]
         for prefix, model in models:
             prefix = prefix + '.' if prefix else prefix
-            for n, m in model.named_modules():
-                for a in dir(m):
-                    if a.endswith(suffix):
-                        d, t = getattr(m, a)
+            for m_name, module in model.named_modules():
+                if hasattr(module, timer_list_name):
+                    for t_name in getattr(module, timer_list_name):
+                        d, t = getattr(module, global_prefix + t_name)
                         if (depth is not None) and (d is not None) and d > depth:
                             continue
                         t = np.asarray(t)
                         if warmup:
                             t = t[warmup:]
-                        name = prefix + (n + '.' if n else '')
-                        name += a[:-len(suffix)]
+                        name = prefix + (m_name + '.' if m_name else '') + t_name
                         assert len(t) > 0, f'Not enough samples for {name} (after discouting warmup)'
 
                         if show_depth:
