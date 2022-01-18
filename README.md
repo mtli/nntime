@@ -1,8 +1,16 @@
-# nntime (Experimental Project)
+# nntime - Simple Utility for Timing Artificial Neural Networks
 
 <p align="center"><img alt="Teaser" src="doc/img/teaser.png" width="600px"></p>
 
-See `examples/basic.py` for usage.
+
+- Offers an easy way to manually mark and time only relevant code, instead of time every line or function in a general purpose profiler!
+- Auto exports all timings to a table (CSV file)
+- Timer markers can optionally include semantic call depths (instead actual uninterpretable ones) and the output will be organized by these call depths
+- Works with CPU/GPU
+- Introduces negligible overhead
+
+
+Check out the `examples` folder for usage.
 
 ## Installation
 
