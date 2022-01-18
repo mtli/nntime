@@ -1,4 +1,4 @@
-# nntime - Simple Utility for Timing Artificial Neural Networks
+# nntime - Simple Utilities for Timing Artificial Neural Networks
 
 Want to time some of your deep learning code, but find general-purpose profilers hard to work with? Then you are here at the right place!
 
