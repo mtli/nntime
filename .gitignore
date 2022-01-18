@@ -108,4 +108,3 @@ ENV/
 
 # custom
 examples/*.csv
-timings.csv
