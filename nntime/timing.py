@@ -9,7 +9,7 @@ import torch
 
 
 global_depth = None
-global_sync = False
+global_sync = True
 global_prefix = '_nntime_'
 
 timer_list_name = global_prefix + 'timer_list'
