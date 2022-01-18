@@ -1,6 +1,8 @@
 '''
-This example shows how to tag relevant functions or code snippets,
-and export the timings to a CSV file.
+This example shows how to better name the timers and provide a numerical
+semantic call depth to better present and organize the results. Note that
+this value can be different from the actual call depth, which can be hard
+to interpret due to the existence of various wrappers in complex codebase.
 '''
 
 import torch
@@ -20,7 +22,10 @@ class Stage1(nn.Module):
         return x + 1
 
     # tag the functions you want to time
-    @time_this()
+    @time_this(
+        name='stage1',  # override the auto generated names
+        depth=2,        # assign a semantic call depth 
+    )
     def forward(self, x):
         return self.conv(self.boring(x))
     
@@ -30,7 +35,10 @@ class Stage2(nn.Module):
         self.linear = nn.Linear(32, 4)
 
     # tag the functions you want to time
-    @time_this()
+    @time_this(
+        name='stage2',  # override the auto generated names
+        depth=2,        # assign a semantic call depth 
+    )
     def forward(self, x):
         return self.linear(x)
 
@@ -40,7 +48,7 @@ class Model(nn.Module):
         self.stage1, self.stage2 = Stage1(), Stage2()
 
     # tag the functions you want to time
-    @time_this()
+    @time_this(depth=1) # assign a semantic call depth 
     def forward(self, x):
         x = self.stage1(x)
         x = x.view(x.shape[0], -1)
@@ -50,7 +58,8 @@ class Model(nn.Module):
         # need to give it a name in this case
         timer_start(self, 'softmax')
         x = F.softmax(x,  1)
-        timer_end(self, 'softmax')
+        # assign a call depth at timer *end* for code snippets
+        timer_end(self, 'softmax', depth=2)
 
         pred = x.max(0)[1]
         return pred
@@ -61,8 +70,11 @@ def main():
     for data in dataset:
         _ = model(data)
     
-    out_path = 'examples/basic.csv'
-    export_timings(model, out_path)
+    out_path = 'examples/call_depth.csv'
+    # by default the timers will be sorted by call depths
+    # but not shown in the export. Set show_depth=True to
+    # see them in the export when you have marked them.
+    export_timings(model, out_path, show_depth=True)
     print(f'Timing summary written to "{out_path}"')
 
 if __name__ == '__main__':
