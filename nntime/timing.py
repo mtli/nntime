@@ -92,6 +92,11 @@ def timer_end(module, name, depth=None):
 def time_tree(module, start_depth=0):
     """Add timers recursively to the forward function of the given module
        and all its submodules with automatic depth markers
+
+       Note that each timer introduces a CUDA synchronization point when
+       timing GPU code, and having too many such sync points may slow down
+       pipelined execution, resulting in inaccurate measurement of the
+       overall runtime.
     """
     # skip nn.ModuleList, which doesn't have a forward function
     if type(module) is not torch.nn.ModuleList:
