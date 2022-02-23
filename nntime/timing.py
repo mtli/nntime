@@ -1,5 +1,6 @@
 from os.path import isfile, dirname
 from os import makedirs
+from types import MethodType
 
 import csv, functools
 from time import perf_counter
@@ -88,13 +89,37 @@ def timer_end(module, name, depth=None):
     t_start = getattr(module, global_prefix + name + '_start')
     _update_counter(module, name, t_end - t_start, depth)
 
+def time_tree(module, start_depth=0):
+    """Add timers recursively to the forward function of the given module
+       and all its submodules with automatic depth markers
+    """
+    # skip nn.ModuleList, which doesn't have a forward function
+    if type(module) is not torch.nn.ModuleList:
+        # Note1: this function is called after the module object is 
+        # created, instead of at the time of creation, thus we need
+        # MethodType here for binding
+        
+        # Note2: the module name will be generated during export, here
+        # we append class types to disambiguate modules in
+        # nn.ModuleList or nn.Sequential 
+
+        module.forward = MethodType(
+            time_this(f' - {module.__class__.__name__}', start_depth)
+                (module.__class__.forward), module
+        )
+        
+        start_depth += 1
+
+    for m in module._modules.values():
+        time_tree(m, start_depth)
+
 def export_timings(
     model,
     out_path,
     overwrite=True,
     auto_mkdir=True,
     depth=None,
-    sort_by_depth=True,
+    sort_by_depth=False,
     show_depth=False,
     header=True,
     warmup=5,
@@ -139,7 +164,10 @@ def export_timings(
                     t = np.asarray(t)
                     if warmup:
                         t = t[warmup:]
-                    name = prefix + (m_name + '.' if m_name else '') + t_name
+                    name = prefix + m_name \
+                         + ('.' if m_name and not t_name.startswith(' - ') else '') \
+                         + t_name
+                    # t_name.startswith(' - ') is for time_tree
                     assert len(t) > 0, f'Not enough samples for {name} (after discouting warmup)'
 
                     row = ['' if d is None else str(d), name,
